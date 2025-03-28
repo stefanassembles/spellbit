@@ -33,7 +33,7 @@ make
 
 This project uses the following open-source libraries:
 
-- [**nlohmann/json**](https://github.com/nlohmann/json) – A modern C++ JSON library (MIT License)
+- [**nlohmann/json**](https://github.com/nlohmann/json) – A modern C++ JSON library (MIT License), included in ```external/``` for convenience.
 
 We gratefully acknowledge the authors and maintainers of these projects.  
 All third-party libraries included comply with `spellbit`'s MIT licensing terms.
