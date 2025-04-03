@@ -8,6 +8,7 @@ namespace spellbit {
 class Trainer {
 private:
   size_t n = 0;
+  int8_t get_utf_char_size(unsigned char byte);
 
 public:
   Trainer();
