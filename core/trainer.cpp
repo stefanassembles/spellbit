@@ -1,3 +1,4 @@
+#include <cctype>
 #include <cstddef>
 #include <cstdint>
 #include <fstream>
@@ -26,6 +27,14 @@ int8_t Trainer::get_utf_char_size(unsigned char byte) {
     return -1;
   }
 }
+void Trainer::add_word(std::string word) {
+  if (word_to_id.find(word) == word_to_id.end()) {
+    word_to_id[word] = words.size();
+    words.push_back(word);
+  }
+  word_count[word_to_id[word]]++;
+}
+
 int Trainer::addFile(std::string path) {
   std::ifstream file(path, std::ios::binary);
   if (!file) {
@@ -40,18 +49,48 @@ int Trainer::addFile(std::string path) {
   int8_t max_size = 0;
   int charsRead = 0;
   int chunkSize;
+  std::string word;
+  std::string last_char = "";
   auto processCharacter = [&](char c) {
     int8_t c_size = get_utf_char_size(c);
     if (c_index == -1) {
+      if (c_size <= 0) { // Handle error cases together
+        std::cerr << "Malformed or unexpected UTF-8 byte: "
+                  << static_cast<int>(c) << "\n";
+        c_index = -1;
+        return;
+      }
       c_index = 0;
       max_size = c_size;
     }
     character[c_index++] = c;
+
     if (c_index == max_size) {
       std::string char_s(character, max_size);
-      std::cout << char_s << "\n";
+
+      // Pair frequency update with safe check for last_char
+      if (!last_char.empty()) {
+        pair_frequencies[last_char + char_s]++;
+      }
+      last_char = char_s;
+
+      // Handle word boundary
+      if (std::isspace(character[0]) || std::ispunct(character[0])) {
+        if (!word.empty()) {
+          add_word(word);
+          word.clear();
+        }
+        if (std::ispunct(character[0])) {
+          add_word(char_s);
+        }
+        last_char = ""; // Reset last_char after punctuation
+      } else {
+        word += char_s;
+      }
+
+      std::cout << char_s;
       charsRead++;
-      c_index = -1;
+      c_index = -1; // Reset after completing a character
     }
   };
   while (file.read(buffer, sizeof(buffer))) {
