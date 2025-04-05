@@ -8,6 +8,9 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)
 endif()
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
+# Define a custom ultra-optimized build type
+set(CMAKE_CXX_FLAGS_PRODUCTION "-Ofast -DNDEBUG -march=native -flto -fomit-frame-pointer -ffunction-sections -fdata-sections" CACHE STRING "Ultra-optimized flags" FORCE)
+set(CMAKE_EXE_LINKER_FLAGS_PRODUCTION "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -Wl,--gc-sections" CACHE STRING "Production linker flags" FORCE)
 # --------------------------
 # Include External Libraries
 # --------------------------
