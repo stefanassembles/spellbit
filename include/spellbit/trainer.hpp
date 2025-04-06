@@ -46,16 +46,15 @@ private:
   std::vector<std::vector<uint32_t>> vocab;
   std::priority_queue<FrequencyPair, std::vector<FrequencyPair>, PairFrequencyOrder> freq_pq;
   void initialize_queue_from_pairs(); 
-  std::set<BytePair> new_entries;
 
 public:
   Trainer(size_t max_vocab_size): max_vocab_size(max_vocab_size) {};
   ~Trainer(){};
 
+  void save_vocab(const std::string& filename);
   int addFile(std::string path);
   size_t train(); 
 };
 
 }
 #endif
-

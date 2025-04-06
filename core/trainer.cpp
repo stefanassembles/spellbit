@@ -39,25 +39,24 @@ void Trainer::add_word(std::string word, std::vector<uint32_t> word_as_list) {
       word_count.resize(new_id + 1, 0); // Initialize new slots with 0
     }
 
-  uint32_t word_id = word_to_id[word];
-  if (word_as_list.size() >= 2) {
-    auto it = word_as_list.begin();
-    auto nextIt = std::next(it);
+    uint32_t word_id = word_to_id[word];
+    if (word_as_list.size() >= 2) {
+      auto it = word_as_list.begin();
+      auto nextIt = std::next(it);
 
-    do {
-      BytePair pair = std::make_pair(*it, *nextIt);
-      pair_to_word[pair].insert(word_id);
-      pair_frequencies[pair]++;
-      ++it;
-      ++nextIt;
-    } while (nextIt != word_as_list.end());
-  }
+      do {
+        BytePair pair = std::make_pair(*it, *nextIt);
+        pair_to_word[pair].insert(word_id);
+        pair_frequencies[pair]++;
+        ++it;
+        ++nextIt;
+      } while (nextIt != word_as_list.end());
+    }
 
   } else {
-  uint32_t word_id = word_to_id[word];
-  word_count[word_id]++;
+    uint32_t word_id = word_to_id[word];
+    word_count[word_id]++;
   }
-
 }
 uint32_t utf8_to_uint32(const char *bytes, int length) {
   uint32_t codepoint = 0;
@@ -148,8 +147,12 @@ int Trainer::addFile(std::string path) {
   return charsRead;
 }
 void Trainer::initialize_queue_from_pairs() {
-  std::vector<FrequencyPair> heap(pair_frequencies.begin(),
-                                  pair_frequencies.end());
+  std::vector<FrequencyPair> heap;
+  for (const auto &[pair, freq] : pair_frequencies) {
+    if (freq >= 2) {
+      heap.emplace_back(pair, freq);
+    }
+  }
   std::make_heap(heap.begin(), heap.end(), PairFrequencyOrder());
   std::priority_queue<FrequencyPair, std::vector<FrequencyPair>,
                       PairFrequencyOrder>
@@ -167,6 +170,7 @@ std::vector<uint32_t> Trainer::create_vocab_entry(BytePair bp) {
 }
 size_t Trainer::train() {
   int iteration_count = 0;
+  const int log_interval = 100; // Log every 100 iterations
 
   initialize_queue_from_pairs();
   vocab.resize(one_character_tokens.size());
@@ -174,95 +178,113 @@ size_t Trainer::train() {
   for (const auto &[character, idx] : one_character_tokens) {
     vocab[idx] = {character};
   }
-  auto &[pair, freq] = freq_pq.top();
-
-  while ((vocab.size() < max_vocab_size) && !freq_pq.empty()) {
-    iteration_count++;
-    auto &[pair, stored_freq] = freq_pq.top();
+  // Debug info before starting
+ while ((vocab.size() < max_vocab_size) && !freq_pq.empty()) {
+    auto [pair, stored_freq] = freq_pq.top();
 
     freq_pq.pop();
     uint32_t real_frequency = pair_frequencies[pair];
 
-    if(real_frequency == 0) {
+    if (real_frequency < 2) {
       continue;
     }
     if (real_frequency != stored_freq) {
-      freq_pq.pop();
       FrequencyPair new_frequency = std::make_pair(pair, real_frequency);
       freq_pq.push(new_frequency);
       continue;
     }
- 
-    uint32_t merged_id = current_id++;
+
+    uint32_t merged_id = vocab.size();
     vocab.push_back(create_vocab_entry(pair));
 
-   std::set<BytePair> new_entries;
+    // Track the number of words being processed
+    size_t affected_words = pair_to_word[pair].size();
+       std::set<BytePair> new_entries;
     new_entries.insert(pair);
     for (const uint32_t word_id : pair_to_word[pair]) {
       uint32_t count = word_count[word_id];
       auto &word = words[word_id];
-
-      // First pass: Identify and decrement frequencies for pairs that will be
-      // affected
-      for (size_t i = 0; i < word.size() - 1; i++) {
-        if (word[i] == pair.first && word[i + 1] == pair.second) {
-          // If there's a token before the pair, decrement its frequency
-          if (i > 0) {
-            BytePair left = std::make_pair(word[i - 1], word[i]);
-            pair_frequencies[left] -= count;
-          }
-          // If there's a token after the pair, decrement its frequency
-          if (i + 2 < word.size()) {
-            BytePair right = std::make_pair(word[i + 1], word[i + 2]);
-            pair_frequencies[right] -= count;
-          }
-        }
-      }
-
-      // Second pass: Create new word with merged tokens and track new pairs
       std::vector<uint32_t> new_word;
       new_word.reserve(word.size());
 
-      for (size_t i = 0; i < word.size(); i++) {
-        if (i < word.size() - 1 && word[i] == pair.first &&
+      for (size_t i = 0; i < word.size() - 1; i++) {
+        uint32_t current_char = word[i];
+        bool next_char_exists = i + 1 < word.size();
+        bool next_next_char_exists = i + 2 < word.size();
+        bool previous_char_eixsts = i >= 1;
+
+        if (current_char == pair.first && next_char_exists &&
             word[i + 1] == pair.second) {
-          // Add merged token
+          // we found a pair
+          if (previous_char_eixsts) {
+            BytePair prev_left = std::pair(word[i - 1], word[i]);
+            pair_frequencies[prev_left] -= count;
+            BytePair left = std::pair(word[i - 1], merged_id);
+            pair_frequencies[left] += count;
+            new_entries.insert(left);
+          }
           new_word.push_back(merged_id);
-
-          // If there's a previous token, create a new left pair
-          if (new_word.size() > 1) {
-            BytePair new_left =
-                std::make_pair(new_word[new_word.size() - 2], merged_id);
-            pair_frequencies[new_left] += count;
-            pair_to_word[new_left].insert(word_id);
-            new_entries.insert(new_left);
+          if (next_next_char_exists) {
+            BytePair prev_right = std::pair(word[i + 1], word[i + 2]);
+            pair_frequencies[prev_right] -= count;
+            BytePair right = std::pair(merged_id, word[i+2]);
+            pair_frequencies[right] += count;
+            new_entries.insert(right);
           }
-
-          // If there's a token after, create a new right pair
-          if (i + 2 < word.size()) {
-            BytePair new_right = std::make_pair(merged_id, word[i + 2]);
-            pair_frequencies[new_right] += count;
-            pair_to_word[new_right].insert(word_id);
-            new_entries.insert(new_right);
-          }
-
-          // Skip the second token in the pair
+          // we merged two tokens, so we need to skip ahead
           i++;
         } else {
-          // Just copy the token
           new_word.push_back(word[i]);
         }
       }
 
-      // Replace the old word with the new one
       word = std::move(new_word);
     }
-    // update queue 
-    for(const auto& pair: new_entries) {
-      FrequencyPair pf = std::make_pair(pair, pair_frequencies[pair]);
+    // update queue
+    for (auto pair : new_entries) {
+      uint32_t frequency = pair_frequencies[pair];
+      if (frequency < 2)
+        continue;
+      FrequencyPair pf = std::make_pair(pair, frequency);
       freq_pq.push(pf);
     }
   }
   return vocab.size();
+}
+
+void Trainer::save_vocab(const std::string &filename) {
+  std::ofstream outfile(filename, std::ios::binary);
+  if (!outfile) {
+    std::cerr << "Error opening file for writing: " << filename << std::endl;
+    return;
+  }
+
+  // Header
+  uint32_t magic_number = 0xBEEFBABE;   // Unique identifier
+  uint8_t version = 1;                  // Version number
+  uint8_t data_type = sizeof(uint32_t); // Current size of codepoints
+  uint16_t reserved = 0;                // Future-proof padding
+
+  // Write header
+  outfile.write(reinterpret_cast<const char *>(&magic_number),
+                sizeof(magic_number));
+  outfile.write(reinterpret_cast<const char *>(&version), sizeof(version));
+  outfile.write(reinterpret_cast<const char *>(&data_type), sizeof(data_type));
+  outfile.write(reinterpret_cast<const char *>(&reserved), sizeof(reserved));
+
+  // Write the vocabulary size
+  uint32_t vocab_size = vocab.size();
+  outfile.write(reinterpret_cast<char *>(&vocab_size), sizeof(vocab_size));
+
+  // Write vocab entries
+  for (const auto &codepoints : vocab) {
+    uint32_t length = codepoints.size();
+    outfile.write(reinterpret_cast<char *>(&length), sizeof(length));
+    outfile.write(reinterpret_cast<const char *>(codepoints.data()),
+                  length * sizeof(uint32_t));
+  }
+
+  outfile.close();
+  std::cout << "Vocabulary saved to: " << filename << std::endl;
 }
 } // namespace spellbit
