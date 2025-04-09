@@ -1,6 +1,7 @@
 #include <iostream>
 #include<string>
 #include <spellbit/trainer.hpp>
+#include <spellbit/tokenizer.hpp>
 #include <chrono>
 
 int main(int argc, char *argv[]) {
@@ -9,11 +10,14 @@ int main(int argc, char *argv[]) {
     //return 1; 
   }
   std::string file_name(argv[1]);
-  size_t max_vocab = 56000; 
+  size_t max_vocab = 56000;
   spellbit::Trainer trainer(max_vocab);
   std::cout << "Reading file " << file_name << " ... ";
+  auto first_time = std::chrono::high_resolution_clock::now();
 
-  auto last_time = std::chrono::high_resolution_clock::now(); int bytes = trainer.addFile(file_name); auto current_time = std::chrono::high_resolution_clock::now();
+  auto last_time = std::chrono::high_resolution_clock::now();
+  int bytes = trainer.add_file(file_name);
+  auto current_time = std::chrono::high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(current_time - last_time).count();
 
   std::cout << "[OK]" << std::endl;
@@ -34,8 +38,17 @@ int main(int argc, char *argv[]) {
 
   std::string file("train.bpe");
   trainer.save_vocab(file);
-
-  
-
-  return 0;
+  last_time = std::chrono::high_resolution_clock::now();
+  std::cout << "Tokenizing ... ";
+  spellbit::Tokenizer tokenizer = spellbit::Tokenizer();
+  tokenizer.init(file);
+  auto throw_away = tokenizer.tokenize(file_name);
+  current_time = std::chrono::high_resolution_clock::now();
+  std::cout << "[OK]" << std::endl;
+  time_per_1000_tokens = float(duration) / float(max_vocab) * 1000;
+  std::cout << "Total: " << duration << " ms, ms / 1000 tokens : " << time_per_1000_tokens << std::endl;
+  duration = std::chrono::duration_cast<std::chrono::milliseconds>(current_time - first_time).count();
+  auto seconds = (double) duration / 1000.0;
+  auto minutes = seconds / 60.0;
+  std::cout << "Overall it took: " << seconds << " secs, or " << minutes << " minutes" << std::endl;
 }
