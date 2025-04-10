@@ -33,4 +33,4 @@ int8_t get_utf_char_size(unsigned char byte) {
   }
 }
 
-} // namespace spellbit
+} 

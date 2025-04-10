@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <fstream>
 #include <iostream>
+#include <ostream>
 #include <spellbit/trainer.hpp>
 #include <utility>
 #include <vector>
