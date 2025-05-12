@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.12)
 project(spellbit)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 if(NOT CMAKE_BUILD_TYPE)
@@ -17,23 +17,22 @@ add_definitions(-D_GLIBCXX_USE_CXX11_ABI=1)
 # --------------------------
 include_directories(
     ${CMAKE_SOURCE_DIR}/include
-    #${CMAKE_SOURCE_DIR}/external/json
 )
 
 # --------------------------
 # Core Library
 # --------------------------
 add_library(spellbit_trainer STATIC
-    core/trainer.cpp
+    src/trainer.cpp
 )
 add_library(spellbit_tokenizer STATIC
-    core/tokenizer.cpp
+    src/tokenizer.cpp
 )
 add_library(spellbit_helpers STATIC
-    core/helpers.cpp
+    src/helpers.cpp
 )
 add_library(spellbit_count_min_sketch STATIC
-    core/count_min_sketch.cpp
+    src/count_min_sketch.cpp
 )
 
 
@@ -50,7 +49,7 @@ target_link_libraries(spellbit_tokenizer
 # CLI Executable
 # --------------------------
 add_executable(spellbit
-    cli/main.cpp
+    src/main.cpp
 )
 
 target_link_libraries(spellbit
