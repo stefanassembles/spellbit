@@ -5,12 +5,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 
+include(FetchContent)
 
-# --------------------------
 # Include External Libraries
 # --------------------------
 include_directories(
-    ${CMAKE_SOURCE_DIR}/include
+    include/
+    external/
 )
 
 # --------------------------
@@ -52,9 +53,12 @@ target_link_libraries(spellbit
     spellbit_tokenizer
 )
 
-find_package(Catch2 3 REQUIRED)
 
-add_executable(tests tests/tests.cpp)
-target_link_libraries(tests PRIVATE Catch2::Catch2WithMain)
+add_executable(test_runner
+	external/catch2/catch_amalgamated.cpp
+	tests/test_runner.cpp
+	tests/test_helpers.cpp
 
+	)
+target_include_directories(test_runner PRIVATE external/catch2)
 
